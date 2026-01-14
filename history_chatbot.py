@@ -17,6 +17,8 @@ load_dotenv()
 # Ensure these are set in your .env file
 os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2", "false")
 os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "Historical Figures Chatbot")
+load_dotenv(dotenv_path="C:\\Users\\shard\\OneDrive\\Documents\\history_chatbot_project\\history_chatbot_project\\.env",override = True)
+print(os.environ.get("OPENAI_API_KEY"))
 
 # --- PDF Ingestion ---
 def initialize_vector_store(pdf_path):
@@ -74,7 +76,7 @@ def create_chatbot_chain(vectorstore):
 
 # --- Initialization ---
 # Update this path to where your PDF is located
-PDF_FILE_PATH = "historical_figures.pdf"
+PDF_FILE_PATH = "C:\\Users\\shard\\OneDrive\\Documents\\history_chatbot_project\\history_chatbot_project\\historical_figures.pdf"
 
 try:
     vector_store = initialize_vector_store(PDF_FILE_PATH)
@@ -89,8 +91,19 @@ def chat_response(message, history):
     if qa_chain is None:
         return "Error: Chatbot not initialized. Check if the PDF file exists and API keys are set."
     
-    response = qa_chain.invoke({"query": message})
-    return response["result"]
+    print("History before appending:", history)
+    # Format the user message properly 
+    history.append({"role": "user", "content": message})
+    #print("Formatted messages:", messages)
+    # Send the query to the chain and get the response 
+    response = qa_chain.invoke({"query": message}) 
+    # Get the assistant's reply 
+    bot_message = response["result"] 
+    # Append the user-bot pair to history 
+    history.append({"role": "assistant", "content": bot_message}) 
+    print("History after appending:", history)
+    return "", history
+
 
 def clear_history():
     if qa_chain:
@@ -107,16 +120,28 @@ with gr.Blocks() as demo:
         clear = gr.Button("Clear History")
 
     def respond(message, chat_history):
-        bot_message = chat_response(message, chat_history)
-        chat_history.append((message, bot_message))
+        print(f"User Message: {message}") 
+        print(f"Chat History: {chat_history}") 
+        #chat_history.append({"role": "user", "content": message})
+        bot_message, chat_history = chat_response(message, chat_history)
+        #chat_history.append(("role": "assistant", "content": bot_message))
+        #chat_history.append({"role": "assistant", "content": bot_message})
+        print(f"Updated History: {chat_history}")
         return "", chat_history
 
-    submit.click(respond, [msg, chatbot], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot], [msg, chatbot])
+    submit.click(respond, inputs=[msg, chatbot], outputs=[msg, chatbot])
+    msg.submit(respond, inputs=[msg, chatbot], outputs=[msg, chatbot])
     clear.click(lambda: [], None, chatbot, queue=False).then(clear_history)
     
     # Initial greeting
-    chatbot.value = [[None, "Hello, I am HistoryBot, your expert on historical figures. How can I assist you today?"]]
+    chatbot.value = [{
+    "role": "assistant",
+    "content": [
+        {
+            "type": "text",
+            "text": "Hello, I am HistoryBot, your expert on historical figures. How can I assist you today?"
+        }]}]
+
 
 if __name__ == "__main__":
     # Launch the app
